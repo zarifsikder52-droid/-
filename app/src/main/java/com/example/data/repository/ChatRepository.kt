@@ -200,9 +200,10 @@ class ChatRepository(
             }
 
             if (after == 0) {
-                chatDao.deleteMessagesForConversation(convId)
+                chatDao.syncConversationMessages(convId, cached)
+            } else {
+                chatDao.insertMessages(cached)
             }
-            chatDao.insertMessages(cached)
             Result.success(remote)
         } catch (e: Exception) {
             Result.failure(e)
@@ -366,7 +367,13 @@ class ChatRepository(
             } else {
                 apiService.sendMessage(text = payloadToSend, chatWith = chatWith)
             }
-            // Delete the temporary message, since the synced message flow will load the official one from server
+            // Trigger a direct sync to pull down the newly sent message from the server first
+            try {
+                syncMessages(myUid, chatWith)
+            } catch (ex: Exception) {
+                Log.e("ChatRepo", "Failed to sync messages immediately after sending: ${ex.localizedMessage}")
+            }
+            // Now we can safely delete the temporary message without any visual gap/flicker
             chatDao.deleteMessageById(tempId)
             Result.success(res)
         } catch (e: Exception) {
@@ -416,6 +423,12 @@ class ChatRepository(
                 apiService.sendFileMessage(chatWith = chatWith, fileType = fileType, fileName = fileName, fileUrl = fileUrl)
             }
             if (myUid.isNotEmpty()) {
+                // Synchronize immediately to fetch official remote message
+                try {
+                    syncMessages(myUid, chatWith)
+                } catch (ex: Exception) {
+                    Log.e("ChatRepo", "Failed to sync messages immediately after sending file: ${ex.localizedMessage}")
+                }
                 chatDao.deleteMessageById(tempId)
             }
             Result.success(res)

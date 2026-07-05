@@ -16,11 +16,13 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,6 +65,20 @@ val ChatThemeOptions = listOf(
     ChatThemeOption("peach", "Warm Sunset", Color(0xFFFDF2E9), false),
     ChatThemeOption("midnight", "Midnight Navy", Color(0xFF0B141A), true)
 )
+
+fun formatChatDate(timeMs: Long): String {
+    val messageCalendar = Calendar.getInstance().apply { timeInMillis = timeMs }
+    val nowCalendar = Calendar.getInstance()
+    return if (nowCalendar.get(Calendar.YEAR) == messageCalendar.get(Calendar.YEAR) &&
+        nowCalendar.get(Calendar.DAY_OF_YEAR) == messageCalendar.get(Calendar.DAY_OF_YEAR)) {
+        "Today"
+    } else if (nowCalendar.get(Calendar.YEAR) == messageCalendar.get(Calendar.YEAR) &&
+        nowCalendar.get(Calendar.DAY_OF_YEAR) - messageCalendar.get(Calendar.DAY_OF_YEAR) == 1) {
+        "Yesterday"
+    } else {
+        SimpleDateFormat("EEEE, MMMM d", Locale.getDefault()).format(Date(timeMs))
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -539,7 +555,40 @@ fun ChatScreen(
                             }
                         }
                     } else {
-                        items(filteredMessages) { message ->
+                        itemsIndexed(
+                            items = filteredMessages,
+                            key = { _, message -> message.id }
+                        ) { index, message ->
+                            val showDateHeader = if (index == 0) {
+                                true
+                            } else {
+                                val prevMessage = filteredMessages[index - 1]
+                                formatChatDate(message.time) != formatChatDate(prevMessage.time)
+                            }
+
+                            if (showDateHeader) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFEBF5)),
+                                        shape = RoundedCornerShape(16.dp),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                                    ) {
+                                        Text(
+                                            text = formatChatDate(message.time),
+                                            color = Color(0xFF706685),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
+                            }
+
                             val isOutgoing = message.sender == currentUser?.uid
                             val reaction = messageReactions[message.id]
                             val isSelected = selectedMessages.contains(message)
@@ -715,109 +764,157 @@ fun ChatScreen(
                             }
                         }
                     } else {
-                        // Standard Input Row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            var showAttachmentMenu by remember { mutableStateOf(false) }
-                            Box {
-                                IconButton(onClick = { showAttachmentMenu = true }, modifier = Modifier.testTag("attach_btn")) {
-                                    Icon(Icons.Default.Add, contentDescription = "Add Attachment", tint = Color.Gray, modifier = Modifier.size(28.dp))
-                                }
-
-                                DropdownMenu(
-                                    expanded = showAttachmentMenu,
-                                    onDismissRequest = { showAttachmentMenu = false }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Send Image") },
-                                        leadingIcon = { Icon(Icons.Default.Photo, contentDescription = null, tint = Color(0xFF1E88E5)) },
-                                        onClick = {
-                                            showAttachmentMenu = false
-                                            imagePickerLauncher.launch("image/*")
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Send Generic File") },
-                                        leadingIcon = { Icon(Icons.Default.AttachFile, contentDescription = null, tint = Color(0xFF25D366)) },
-                                        onClick = {
-                                            showAttachmentMenu = false
-                                            filePickerLauncher.launch("*/*")
-                                        }
-                                    )
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            // Suggested/Smart Replies Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                listOf("Sounds good!", "On it.", "Talk later?").forEach { phrase ->
+                                    Box(
+                                        modifier = Modifier
+                                            .border(
+                                                width = 1.dp,
+                                                color = Color(0xFFE5DEF5),
+                                                shape = RoundedCornerShape(20.dp)
+                                            )
+                                            .background(Color.White, RoundedCornerShape(20.dp))
+                                            .clickable {
+                                                viewModel.sendMessage(phrase)
+                                            }
+                                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = phrase,
+                                            color = Color(0xFF1C123F),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
                                 }
                             }
 
-                            OutlinedTextField(
-                                value = textInput,
-                                onValueChange = {
-                                    textInput = it
-                                    viewModel.onUserTyping(activeUser?.uid)
-                                },
-                                placeholder = { Text("Type a message", fontSize = 15.sp) },
-                                singleLine = false,
-                                maxLines = 4,
-                                shape = RoundedCornerShape(24.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.Black,
-                                    unfocusedTextColor = Color.Black,
-                                    focusedContainerColor = Color(0xFFEDE9F2),
-                                    unfocusedContainerColor = Color(0xFFEDE9F2),
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
-                                ),
-                                trailingIcon = {
-                                    IconButton(onClick = { }) {
+                            // Standard Input Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                var showAttachmentMenu by remember { mutableStateOf(false) }
+                                Box {
+                                    // Custom outlined circular plus button matching the design exactly
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .border(1.5.dp, Color.Gray, CircleShape)
+                                            .clip(CircleShape)
+                                            .clickable { showAttachmentMenu = true }
+                                            .testTag("attach_btn"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
                                         Icon(
-                                            imageVector = Icons.Default.SentimentSatisfiedAlt,
-                                            contentDescription = "Emojis",
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Add Attachment",
                                             tint = Color.Gray,
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(20.dp)
                                         )
                                     }
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 40.dp, max = 120.dp)
-                                    .testTag("chat_text_input")
-                            )
 
-                            if (textInput.isNotBlank()) {
-                                IconButton(
-                                    onClick = {
-                                        if (textInput.isNotBlank()) {
-                                            viewModel.sendMessage(textInput)
-                                            textInput = ""
-                                        }
-                                    },
-                                    colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                    modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(CircleShape)
-                                        .testTag("send_btn")
-                                ) {
-                                    Icon(Icons.Default.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(20.dp))
+                                    DropdownMenu(
+                                        expanded = showAttachmentMenu,
+                                        onDismissRequest = { showAttachmentMenu = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Send Image") },
+                                            leadingIcon = { Icon(Icons.Default.Photo, contentDescription = null, tint = Color(0xFF1E88E5)) },
+                                            onClick = {
+                                                showAttachmentMenu = false
+                                                imagePickerLauncher.launch("image/*")
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Send Generic File") },
+                                            leadingIcon = { Icon(Icons.Default.AttachFile, contentDescription = null, tint = Color(0xFF25D366)) },
+                                            onClick = {
+                                                showAttachmentMenu = false
+                                                filePickerLauncher.launch("*/*")
+                                            }
+                                        )
+                                    }
                                 }
-                            } else {
-                                IconButton(
-                                    onClick = {
-                                        if (hasRecordPermission.value) {
-                                            startRecording()
-                                        } else {
-                                            requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+
+                                OutlinedTextField(
+                                    value = textInput,
+                                    onValueChange = {
+                                        textInput = it
+                                        viewModel.onUserTyping(activeUser?.uid)
+                                    },
+                                    placeholder = { Text("Type a message...", fontSize = 15.sp) },
+                                    singleLine = false,
+                                    maxLines = 4,
+                                    shape = RoundedCornerShape(24.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.Black,
+                                        unfocusedTextColor = Color.Black,
+                                        focusedContainerColor = Color(0xFFEDE9F5),
+                                        unfocusedContainerColor = Color(0xFFEDE9F5),
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedBorderColor = Color.Transparent
+                                    ),
+                                    trailingIcon = {
+                                        IconButton(onClick = { }) {
+                                            Icon(
+                                                imageVector = Icons.Default.SentimentSatisfiedAlt,
+                                                contentDescription = "Emojis",
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(24.dp)
+                                            )
                                         }
                                     },
-                                    colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
                                     modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(CircleShape)
-                                        .testTag("mic_btn")
-                                ) {
-                                    Icon(Icons.Default.Mic, contentDescription = "Record Voice Note", tint = Color.White, modifier = Modifier.size(22.dp))
+                                        .weight(1f)
+                                        .heightIn(min = 40.dp, max = 120.dp)
+                                        .testTag("chat_text_input")
+                                )
+
+                                if (textInput.isNotBlank()) {
+                                    IconButton(
+                                        onClick = {
+                                            if (textInput.isNotBlank()) {
+                                                viewModel.sendMessage(textInput)
+                                                textInput = ""
+                                            }
+                                        },
+                                        colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .testTag("send_btn")
+                                    ) {
+                                        Icon(Icons.Default.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(20.dp))
+                                    }
+                                } else {
+                                    IconButton(
+                                        onClick = {
+                                            if (hasRecordPermission.value) {
+                                                startRecording()
+                                            } else {
+                                                requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                            }
+                                        },
+                                        colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .testTag("mic_btn")
+                                    ) {
+                                        Icon(Icons.Default.Mic, contentDescription = "Record Voice Note", tint = Color.White, modifier = Modifier.size(22.dp))
+                                    }
                                 }
                             }
                         }
@@ -1260,13 +1357,9 @@ fun MessageBubble(
     onForward: (RecentChat) -> Unit,
     onCopy: () -> Unit
 ) {
-    val bubbleColor = if (isOutgoing) Color(0xFFDCF8C6) else Color.White
+    val bubbleColor = if (isOutgoing) Color(0xFF4E3593) else Color(0xFFEFE9FC)
     val alignment = if (isOutgoing) Alignment.CenterEnd else Alignment.CenterStart
-    val bubbleShape = if (isOutgoing) {
-        RoundedCornerShape(12.dp, 0.dp, 12.dp, 12.dp)
-    } else {
-        RoundedCornerShape(0.dp, 12.dp, 12.dp, 12.dp)
-    }
+    val bubbleShape = RoundedCornerShape(18.dp)
 
     var showDropdownMenu by remember { mutableStateOf(false) }
     var showForwardPickerInMenu by remember { mutableStateOf(false) }
@@ -1282,123 +1375,277 @@ fun MessageBubble(
         Box(
             contentAlignment = if (isOutgoing) Alignment.BottomEnd else Alignment.BottomStart
         ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = bubbleColor),
-                shape = bubbleShape,
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier
-                    .widthIn(max = 290.dp)
-                    .padding(bottom = if (reaction != null) 10.dp else 0.dp)
-                    .combinedClickable(
-                        onLongClick = { onLongClick() },
-                        onClick = {
-                            if (isSelected) {
-                                onClick()
-                            } else {
-                                showDropdownMenu = true
-                            }
-                        }
-                    )
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+            if (!isOutgoing) {
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.widthIn(max = 310.dp)
                 ) {
-                    when (message.type) {
-                        "text" -> {
+                    val senderChat = recentChats.find { it.uid == message.sender }
+                    val avatarUrl = senderChat?.avatarUrl
+                    val displayName = senderChat?.fullname ?: "User"
+                    if (!avatarUrl.isNullOrEmpty()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(avatarUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = displayName,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEFE9FC))
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE1D9F1)),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
-                                text = message.text ?: "",
-                                fontSize = 15.sp,
-                                color = Color.Black
+                                text = displayName.take(1).uppercase(),
+                                color = Color(0xFF4E3593),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
-                        "image" -> {
-                            val fullUrl = if (message.fileUrl?.startsWith("http") == true) message.fileUrl else "https://chat.hostnibo.shop/${message.fileUrl}"
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(fullUrl)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = "Sent Image",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(160.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.LightGray)
-                                    .clickable { onImageClick() }
+                    }
+
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = bubbleColor),
+                        shape = bubbleShape,
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .padding(bottom = if (reaction != null) 10.dp else 0.dp)
+                            .combinedClickable(
+                                onLongClick = { onLongClick() },
+                                onClick = {
+                                    if (isSelected) {
+                                        onClick()
+                                    } else {
+                                        showDropdownMenu = true
+                                    }
+                                }
                             )
-                        }
-                        "voice" -> {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color(0xFFECEFF1), RoundedCornerShape(8.dp))
-                                    .padding(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Mic,
-                                    contentDescription = "Voice Note",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Voice Note",
-                                    fontSize = 13.sp,
-                                    color = Color.Black,
-                                    fontWeight = FontWeight.Medium
-                                )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            when (message.type) {
+                                "text" -> {
+                                    Text(
+                                        text = message.text ?: "",
+                                        fontSize = 15.sp,
+                                        color = Color(0xFF1C123F)
+                                    )
+                                }
+                                "image" -> {
+                                    val fullUrl = if (message.fileUrl?.startsWith("http") == true) message.fileUrl else "https://chat.hostnibo.shop/${message.fileUrl}"
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(fullUrl)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = "Sent Image",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(160.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color.LightGray)
+                                            .clickable { onImageClick() }
+                                    )
+                                }
+                                "voice" -> {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color(0xFFE5DDF5), RoundedCornerShape(12.dp))
+                                            .padding(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Mic,
+                                            contentDescription = "Voice Note",
+                                            tint = Color(0xFF4E3593),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Voice Note",
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF1C123F),
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                                else -> {
+                                    val filename = message.fileName ?: "Attachment File"
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color(0xFFE5DDF5), RoundedCornerShape(12.dp))
+                                            .padding(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (message.type == "video") Icons.Default.Videocam else Icons.Default.Description,
+                                            contentDescription = null,
+                                            tint = Color(0xFF4E3593),
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = filename,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF1C123F),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                }
                             }
-                        }
-                        else -> {
-                            val filename = message.fileName ?: "Attachment File"
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color(0xFFF0F2F5), RoundedCornerShape(8.dp))
-                                    .padding(8.dp)
+                                modifier = Modifier.align(Alignment.End),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = if (message.type == "video") Icons.Default.Videocam else Icons.Default.Description,
-                                    contentDescription = null,
-                                    tint = Color(0xFF00A884),
-                                    modifier = Modifier.size(28.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                                val timeStr = sdf.format(Date(message.time))
                                 Text(
-                                    text = filename,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
+                                    text = timeStr,
+                                    fontSize = 10.sp,
+                                    color = Color(0xFF756E8A)
                                 )
                             }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier.align(Alignment.End),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
-                        val timeStr = sdf.format(Date(message.time))
-                        Text(
-                            text = timeStr,
-                            fontSize = 10.sp,
-                            color = Color.Gray
+                }
+            } else {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = bubbleColor),
+                    shape = bubbleShape,
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    modifier = Modifier
+                        .widthIn(max = 290.dp)
+                        .padding(bottom = if (reaction != null) 10.dp else 0.dp)
+                        .combinedClickable(
+                            onLongClick = { onLongClick() },
+                            onClick = {
+                                if (isSelected) {
+                                    onClick()
+                                } else {
+                                    showDropdownMenu = true
+                                }
+                            }
                         )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        when (message.type) {
+                            "text" -> {
+                                Text(
+                                    text = message.text ?: "",
+                                    fontSize = 15.sp,
+                                    color = Color.White
+                                )
+                            }
+                            "image" -> {
+                                val fullUrl = if (message.fileUrl?.startsWith("http") == true) message.fileUrl else "https://chat.hostnibo.shop/${message.fileUrl}"
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(fullUrl)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Sent Image",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(160.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFF3B2773))
+                                        .clickable { onImageClick() }
+                                )
+                            }
+                            "voice" -> {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFF3B2773), RoundedCornerShape(12.dp))
+                                        .padding(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = "Voice Note",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Voice Note",
+                                        fontSize = 13.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                            else -> {
+                                val filename = message.fileName ?: "Attachment File"
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFF3B2773), RoundedCornerShape(12.dp))
+                                        .padding(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (message.type == "video") Icons.Default.Videocam else Icons.Default.Description,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = filename,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
 
-                        if (isOutgoing) {
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Row(
+                            modifier = Modifier.align(Alignment.End),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                            val timeStr = sdf.format(Date(message.time))
+                            Text(
+                                text = timeStr,
+                                fontSize = 10.sp,
+                                color = Color.White.copy(alpha = 0.7f)
+                            )
+
                             Spacer(modifier = Modifier.width(4.dp))
                             Icon(
                                 imageVector = if (message.seen) Icons.Default.DoneAll else Icons.Default.Done,
                                 contentDescription = null,
-                                tint = if (message.seen) Color(0xFF34B7F1) else Color.Gray,
+                                tint = if (message.seen) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.5f),
                                 modifier = Modifier.size(13.dp)
                             )
                         }

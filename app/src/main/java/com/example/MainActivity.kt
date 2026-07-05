@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
                                             verticalArrangement = Arrangement.spacedBy(16.dp)
                                         ) {
                                             Text(
-                                                text = "HostNibo Chat",
+                                                text = "RChat",
                                                 fontSize = 28.sp,
                                                 fontWeight = FontWeight.Black,
                                                 color = Color(0xFF1E88E5)

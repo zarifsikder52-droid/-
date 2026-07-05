@@ -218,7 +218,7 @@ fun CallScreen(
                                         val noiseOffset = sin(i * 0.4f - pulseTime.value * 2f) * 20f
                                         val y = midY + waveOffset + noiseOffset
                                         drawCircle(
-                                            color = Color(0xFF4E3593).copy(alpha = 0.7f),
+                                            color = Color(0xFF00A884).copy(alpha = 0.7f),
                                             radius = 4.dp.toPx(),
                                             center = androidx.compose.ui.geometry.Offset(x, y)
                                         )
@@ -242,7 +242,7 @@ fun CallScreen(
                                 }
                                 Canvas(modifier = Modifier.fillMaxSize()) {
                                     drawCircle(
-                                        color = Color(0xFF4E3593).copy(alpha = (1f - (pulseRadius.value - 100f) / 200f).coerceIn(0f, 0.4f)),
+                                        color = Color(0xFF00A884).copy(alpha = (1f - (pulseRadius.value - 100f) / 200f).coerceIn(0f, 0.4f)),
                                         radius = pulseRadius.value.dp.toPx(),
                                         center = center
                                     )
@@ -283,7 +283,7 @@ fun CallScreen(
                                 text = filter.replaceFirstChar { it.uppercase() },
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (activeRemoteFilter == filter) Color(0xFF4E3593) else Color.White,
+                                color = if (activeRemoteFilter == filter) Color(0xFF00A884) else Color.White,
                                 modifier = Modifier
                                     .clickable { activeRemoteFilter = filter }
                                     .padding(vertical = 2.dp)
@@ -417,7 +417,7 @@ fun CallScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White,
                                         modifier = Modifier
-                                            .background(Color(0xFF4E3593), RoundedCornerShape(4.dp))
+                                            .background(Color(0xFF00A884), RoundedCornerShape(4.dp))
                                             .clickable { cameraPermissionState.launchPermissionRequest() }
                                             .padding(horizontal = 6.dp, vertical = 3.dp)
                                     )
@@ -510,7 +510,7 @@ fun CallScreen(
                         }
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             drawCircle(
-                                color = Color(0xFF4E3593).copy(alpha = (1f - (ringPulse.value - 160f) / 80f).coerceIn(0f, 0.25f)),
+                                color = Color(0xFF00A884).copy(alpha = (1f - (ringPulse.value - 160f) / 80f).coerceIn(0f, 0.25f)),
                                 radius = ringPulse.value.dp.toPx() / 2f
                             )
                         }
@@ -525,7 +525,7 @@ fun CallScreen(
                             modifier = Modifier
                                 .size(150.dp)
                                 .clip(CircleShape)
-                                .border(2.dp, Color(0xFF4E3593), CircleShape)
+                                .border(2.dp, Color(0xFF00A884), CircleShape)
                                 .background(Color.Gray)
                         )
                     }

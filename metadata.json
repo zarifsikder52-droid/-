@@ -1,6 +1,6 @@
 {
   "name": "RChat",
-  "description": "An Android frontend client for HostNibo Messaging & Signaling server with support for real-time text chats, file sharing, user search, profile edits, and WebRTC signaling status.",
+  "description": "An Android frontend client for RChat Messaging & Signaling server with support for real-time text chats, file sharing, user search, profile edits, and WebRTC signaling status.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

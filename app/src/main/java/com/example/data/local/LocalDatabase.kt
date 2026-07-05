@@ -112,6 +112,23 @@ interface ChatDao {
     @Query("DELETE FROM cached_messages WHERE conversationId = :conversationId")
     suspend fun deleteMessagesForConversation(conversationId: String)
 
+    @Query("DELETE FROM cached_messages WHERE conversationId = :conversationId AND id > 0")
+    suspend fun deletePositiveMessagesForConversation(conversationId: String)
+
+    @Query("DELETE FROM cached_messages WHERE conversationId = :conversationId AND id NOT IN (:remoteIds) AND id > 0")
+    suspend fun deleteMessagesNotInList(conversationId: String, remoteIds: List<Int>)
+
+    @Transaction
+    suspend fun syncConversationMessages(conversationId: String, remoteMessages: List<CachedMessage>) {
+        if (remoteMessages.isEmpty()) {
+            deletePositiveMessagesForConversation(conversationId)
+        } else {
+            val remoteIds = remoteMessages.map { it.id }
+            deleteMessagesNotInList(conversationId, remoteIds)
+        }
+        insertMessages(remoteMessages)
+    }
+
     @Query("DELETE FROM cached_messages")
     suspend fun clearAllMessages()
 }

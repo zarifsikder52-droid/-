@@ -203,7 +203,7 @@ class SupabaseBackend(private val context: Context) {
                     fullname = p.optString("fullname", "")
                     username = p.optString("username", "")
                     phone = p.optString("phone", "")
-                    profilePic = if (p.isNull("profile_pic")) null else p.optString("profile_pic", null)
+                    profilePic = if (p.isNull("profile_pic")) null else p.optString("profile_pic")
                 }
             } catch (e: Exception) {
                 Log.e("Supabase", "Failed to fetch profile metadata", e)
@@ -263,7 +263,7 @@ class SupabaseBackend(private val context: Context) {
                     username = p.optString("username", "")
                     email = p.optString("email", "")
                     phone = p.optString("phone", "")
-                    profilePic = if (p.isNull("profile_pic")) null else p.optString("profile_pic", null)
+                    profilePic = if (p.isNull("profile_pic")) null else p.optString("profile_pic")
                 }
             } catch (e: Exception) {
                 Log.e("Supabase", "Failed to fetch auth profile details", e)
@@ -328,7 +328,7 @@ class SupabaseBackend(private val context: Context) {
 
                 val name = o.optString("fullname", "")
                 val username = o.optString("username", "")
-                val pic = if (o.isNull("profile_pic")) null else o.optString("profile_pic", null)
+                val pic = if (o.isNull("profile_pic")) null else o.optString("profile_pic")
 
                 list.add(SimpleUser(uid = uid, fullname = name, username = username, profilePic = pic))
             }
@@ -389,7 +389,7 @@ class SupabaseBackend(private val context: Context) {
                 val pObj = profileMap[uid] ?: return@mapNotNull null
                 val name = pObj.optString("fullname", "User")
                 val uname = pObj.optString("username", "user")
-                val pic = if (pObj.isNull("profile_pic")) null else pObj.optString("profile_pic", null)
+                val pic = if (pObj.isNull("profile_pic")) null else pObj.optString("profile_pic")
                 RecentChat(
                     uid = uid,
                     fullname = name,
@@ -428,10 +428,10 @@ class SupabaseBackend(private val context: Context) {
                     Message(
                         id = o.getInt("id"),
                         sender = o.getString("sender"),
-                        text = if (o.isNull("text")) null else o.optString("text", null),
+                        text = if (o.isNull("text")) null else o.optString("text"),
                         type = o.getString("type"),
-                        fileUrl = if (o.isNull("file_url")) null else o.optString("file_url", null),
-                        fileName = if (o.isNull("file_name")) null else o.optString("file_name", null),
+                        fileUrl = if (o.isNull("file_url")) null else o.optString("file_url"),
+                        fileName = if (o.isNull("file_name")) null else o.optString("file_name"),
                         seen = o.optBoolean("seen", false),
                         time = o.getLong("time"),
                         conversationId = o.getString("conversation_id")
@@ -664,7 +664,7 @@ class SupabaseBackend(private val context: Context) {
                 if (profArray.length() > 0) {
                     val p = profArray.getJSONObject(0)
                     callerName = p.optString("fullname", "Caller")
-                    callerPic = if (p.isNull("profile_pic")) null else p.optString("profile_pic", null)
+                    callerPic = if (p.isNull("profile_pic")) null else p.optString("profile_pic")
                 }
 
                 Result.success(
@@ -713,7 +713,7 @@ class SupabaseBackend(private val context: Context) {
             if (array.length() > 0) {
                 val callObj = array.getJSONObject(0)
                 val status = callObj.optString("status", "")
-                val sdpAnswer = if (callObj.isNull("sdp_answer")) null else callObj.optString("sdp_answer", null)
+                val sdpAnswer = if (callObj.isNull("sdp_answer")) null else callObj.optString("sdp_answer")
                 Result.success(CallAnswerResponse(sdp_answer = sdpAnswer, status = status))
             } else {
                 Result.failure(Exception("Call not found"))
@@ -819,7 +819,7 @@ class SupabaseBackend(private val context: Context) {
                 val o = array.getJSONObject(0)
                 val name = o.optString("fullname", "User")
                 val uname = o.optString("username", "user")
-                val pic = if (o.isNull("profile_pic")) null else o.optString("profile_pic", null)
+                val pic = if (o.isNull("profile_pic")) null else o.optString("profile_pic")
                 Result.success(SimpleUser(uid = uid, fullname = name, username = uname, profilePic = pic))
             } else {
                 Result.failure(Exception("User not found"))

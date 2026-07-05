@@ -153,7 +153,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // Persistent Chat Theme Selection
     private val prefs = application.getSharedPreferences("chat_prefs", Context.MODE_PRIVATE)
-    private val _chatTheme = MutableStateFlow(prefs.getString("selected_chat_theme", "classic") ?: "classic")
+    private val _chatTheme = MutableStateFlow(prefs.getString("selected_chat_theme", "lavender") ?: "lavender")
     val chatTheme: StateFlow<String> = _chatTheme.asStateFlow()
 
     fun setChatTheme(themeId: String) {
@@ -306,7 +306,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             _isSearching.value = true
             repository.searchUsers(query).fold(
                 onSuccess = { list ->
-                    _searchResults.value = list
+                    val myUid = _currentUser.value?.uid
+                    _searchResults.value = if (myUid != null) {
+                        list.filter { it.uid != myUid }
+                    } else {
+                        list
+                    }
                 },
                 onFailure = {
                     _searchResults.value = emptyList()
@@ -549,31 +554,61 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private fun startChatPolling(contactUid: String) {
         chatPollJob?.cancel()
         chatPollJob = viewModelScope.launch {
+            var currentDelay = 1000L // Start with fast polling (1s) for instant-like feel
+            val minDelay = 1000L
+            val maxDelay = 15000L
+            var lastActivityTime = System.currentTimeMillis()
+
             while (isActive) {
                 val myUser = _currentUser.value
                 if (myUser != null) {
                     val syncRes = repository.syncMessages(myUser.uid, contactUid)
-                    _isOffline.value = syncRes.isFailure
                     
-                    // Poll remote typing status from server
-                    repository.getTyping(contactUid).fold(
-                        onSuccess = { res ->
-                            _isOffline.value = false
-                            if (res.ok == true || res.type == "typing" || res.name == "typing") {
-                                _activeUserTyping.value = true
-                                resetRemoteTypingJob?.cancel()
-                                resetRemoteTypingJob = viewModelScope.launch {
-                                    delay(4000)
-                                    _activeUserTyping.value = false
-                                }
+                    if (syncRes.isSuccess) {
+                        _isOffline.value = false
+                        val syncedList = syncRes.getOrNull() ?: emptyList()
+                        
+                        if (syncedList.isNotEmpty()) {
+                            // New messages synchronized from server, reset to fastest polling
+                            currentDelay = minDelay
+                            lastActivityTime = System.currentTimeMillis()
+                        } else {
+                            // Check if we can back off slightly under idle state (no messages)
+                            val timeSinceActivity = System.currentTimeMillis() - lastActivityTime
+                            if (timeSinceActivity > 15000) {
+                                currentDelay = minOf(3000L, currentDelay + 500L)
+                            } else {
+                                currentDelay = minDelay
                             }
-                        },
-                        onFailure = {
-                            // Silent fallback
                         }
-                    )
+
+                        // Poll remote typing status from server
+                        repository.getTyping(contactUid).fold(
+                            onSuccess = { res ->
+                                if (res.ok == true || res.type == "typing" || res.name == "typing") {
+                                    _activeUserTyping.value = true
+                                    currentDelay = minDelay // Keep polling fast while they are typing
+                                    lastActivityTime = System.currentTimeMillis()
+                                    resetRemoteTypingJob?.cancel()
+                                    resetRemoteTypingJob = viewModelScope.launch {
+                                        delay(4000)
+                                        _activeUserTyping.value = false
+                                    }
+                                }
+                            },
+                            onFailure = {
+                                // Silent fallback
+                            }
+                        )
+                    } else {
+                        // Connection / Subscription failed (simulating socket drop)
+                        _isOffline.value = true
+                        // Apply exponential backoff for graceful reconnection
+                        currentDelay = minOf(maxDelay, currentDelay * 2)
+                        Log.w("ChatVM", "Chat real-time polling failed, retrying in ${currentDelay}ms due to network error.")
+                    }
                 }
-                delay(2000)
+                delay(currentDelay)
             }
         }
     }
