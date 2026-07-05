@@ -57,6 +57,10 @@ class ChatRepository(
         chatDao.clearSelfUser()
     }
 
+    suspend fun insertLocalChat(chat: CachedChatUser) = withContext(Dispatchers.IO) {
+        chatDao.insertRecentChats(listOf(chat))
+    }
+
     // Local DB Observables
     val recentChats: Flow<List<RecentChat>> = chatDao.getRecentChats().map { list ->
         list.map { RecentChat(uid = it.uid, fullname = it.fullname, username = it.username, profilePic = it.profilePic, unread = it.unread) }

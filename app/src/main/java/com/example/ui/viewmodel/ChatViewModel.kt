@@ -287,6 +287,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun createLocalGroupOrChannel(name: String, isChannel: Boolean) {
+        viewModelScope.launch {
+            val idPrefix = if (isChannel) "channel_" else "group_"
+            val uniqueId = idPrefix + java.util.UUID.randomUUID().toString().take(8)
+            val newChat = com.example.data.local.CachedChatUser(
+                uid = uniqueId,
+                fullname = name,
+                username = if (isChannel) "channel" else "group",
+                profilePic = null,
+                unread = 0
+            )
+            repository.insertLocalChat(newChat)
+        }
+    }
+
     fun logout(onSuccess: () -> Unit) {
         viewModelScope.launch {
             stopDashboardSyncing()

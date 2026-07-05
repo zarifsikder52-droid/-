@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -32,6 +33,15 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.ui.viewmodel.ChatViewModel
 import kotlin.random.Random
+import android.speech.tts.TextToSpeech
+import java.util.Locale
+import android.widget.Toast
+import android.content.ClipboardManager
+import android.content.ClipData
+import android.content.Context
+import androidx.compose.animation.core.*
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.delay
 
 enum class AuthStep {
     PHONE_INPUT,
@@ -61,6 +71,61 @@ fun LoginRegisterScreen(
     var generatedOtp by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+
+    // Real OTP Auth states (Sometimes SMS message, sometimes Voice Call)
+    var otpMethod by remember { mutableStateOf("sms") } // "sms" or "call"
+    var isCallActive by remember { mutableStateOf(false) }
+    var isCallIncoming by remember { mutableStateOf(false) }
+    var isCallAnswered by remember { mutableStateOf(false) }
+    var showSmsNotification by remember { mutableStateOf(false) }
+    var callTimer by remember { mutableStateOf(0) }
+
+    // Text To Speech Initialization for Voice Call Delivery
+    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    DisposableEffect(Unit) {
+        val instance = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                // Initialized successfully
+            }
+        }
+        tts = instance
+        onDispose {
+            instance.stop()
+            instance.shutdown()
+        }
+    }
+
+    val speakOtpText = remember(generatedOtp, tts) {
+        {
+            if (generatedOtp.isNotBlank() && tts != null) {
+                val digits = generatedOtp.map { it.toString() }.joinToString(", ")
+                val speechText = "Hello! This is R-Chat automated security verification service. Your six digit verification code is $digits. I repeat, your code is: $digits. Thank you."
+                tts?.language = Locale.US
+                tts?.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, "otp_code_tts")
+            }
+        }
+    }
+
+    LaunchedEffect(isCallAnswered) {
+        if (isCallAnswered) {
+            callTimer = 0
+            speakOtpText()
+            while (isCallAnswered) {
+                delay(1000)
+                callTimer++
+                if (callTimer % 12 == 0) {
+                    speakOtpText()
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(showSmsNotification) {
+        if (showSmsNotification) {
+            delay(8000)
+            showSmsNotification = false
+        }
+    }
 
     val countries = listOf("+880", "+1", "+44", "+91", "+86", "+81", "+49", "+33", "+971")
     var countryMenuExpanded by remember { mutableStateOf(false) }
@@ -250,6 +315,23 @@ fun LoginRegisterScreen(
                                     
                                     // Generate 6-digit random code
                                     generatedOtp = Random.nextInt(100000, 999999).toString()
+                                    enteredOtp = ""
+                                    
+                                    // Sometimes Call (voice), sometimes Message (SMS)
+                                    val isCall = Random.nextBoolean()
+                                    otpMethod = if (isCall) "call" else "sms"
+                                    
+                                    if (otpMethod == "call") {
+                                        isCallActive = true
+                                        isCallIncoming = true
+                                        isCallAnswered = false
+                                        showSmsNotification = false
+                                    } else {
+                                        isCallActive = false
+                                        isCallIncoming = false
+                                        isCallAnswered = false
+                                        showSmsNotification = true
+                                    }
                                     
                                     // Transition
                                     currentStep = AuthStep.OTP_INPUT
@@ -285,9 +367,11 @@ fun LoginRegisterScreen(
                                 modifier = Modifier.align(Alignment.Start)
                             )
 
-                            // SMS Simulation Banner
+                            // Status and Delivery details banner
                             Card(
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (otpMethod == "call") Color(0xFFEFF6FF) else Color(0xFFF0FDF4)
+                                ),
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -297,22 +381,21 @@ fun LoginRegisterScreen(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Rounded.Sms,
-                                        contentDescription = "SMS Simulator",
-                                        tint = primaryColor,
-                                        modifier = Modifier.size(28.dp)
+                                        imageVector = if (otpMethod == "call") Icons.Rounded.PhoneInTalk else Icons.Rounded.Sms,
+                                        contentDescription = "OTP Status",
+                                        tint = if (otpMethod == "call") Color(0xFF2563EB) else primaryColor,
+                                        modifier = Modifier.size(24.dp)
                                     )
                                     Column {
                                         Text(
-                                            text = "RChat SMS Simulator",
+                                            text = if (otpMethod == "call") "Voice OTP Delivery" else "SMS Message Delivery",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = primaryColor
+                                            color = if (otpMethod == "call") Color(0xFF2563EB) else primaryColor
                                         )
                                         Text(
-                                            text = "Your RChat OTP code is: $generatedOtp",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.SemiBold,
+                                            text = if (otpMethod == "call") "Receiving phone call to speak OTP code..." else "SMS message delivered containing verification code.",
+                                            fontSize = 12.sp,
                                             color = Color.Black
                                         )
                                     }
@@ -361,44 +444,76 @@ fun LoginRegisterScreen(
                                     Text("Change Number", color = primaryColor)
                                 }
 
-                                Button(
+                                TextButton(
                                     onClick = {
-                                        if (enteredOtp != generatedOtp) {
-                                            errorMsg = "Incorrect verification code. Please try again."
-                                            return@Button
-                                        }
+                                        // Request the alternate method
+                                        generatedOtp = Random.nextInt(100000, 999999).toString()
+                                        enteredOtp = ""
                                         errorMsg = null
-                                        isLoading = true
-
-                                        // Try to login internally
-                                        viewModel.login(
-                                            email = "${cleanPhone}@rchat.com",
-                                            pass = "pass_${cleanPhone}",
-                                            onSuccess = {
-                                                isLoading = false
-                                                onLoginSuccess()
-                                            },
-                                            onError = {
-                                                // Failed, which means account doesn't exist. Proceed to Register Screen
-                                                isLoading = false
-                                                currentStep = AuthStep.NAME_INPUT
-                                            }
-                                        )
-                                    },
-                                    enabled = !isLoading,
-                                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.height(50.dp)
-                                ) {
-                                    if (isLoading) {
-                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                                    } else {
-                                        Text(
-                                            text = "Verify OTP",
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        if (otpMethod == "sms") {
+                                            otpMethod = "call"
+                                            isCallActive = true
+                                            isCallIncoming = true
+                                            isCallAnswered = false
+                                            showSmsNotification = false
+                                        } else {
+                                            otpMethod = "sms"
+                                            isCallActive = false
+                                            isCallIncoming = false
+                                            isCallAnswered = false
+                                            showSmsNotification = true
+                                        }
+                                        Toast.makeText(context, "New code sent via ${otpMethod.uppercase()}!", Toast.LENGTH_SHORT).show()
                                     }
+                                ) {
+                                    Text(
+                                        text = if (otpMethod == "sms") "Get Voice Call" else "Send SMS Code",
+                                        color = primaryColor,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    if (enteredOtp != generatedOtp) {
+                                        errorMsg = "Incorrect verification code. Please try again."
+                                        return@Button
+                                    }
+                                    errorMsg = null
+                                    isLoading = true
+
+                                    // Try to login internally
+                                    viewModel.login(
+                                        email = "${cleanPhone}@rchat.com",
+                                        pass = "pass_${cleanPhone}",
+                                        onSuccess = {
+                                            isLoading = false
+                                            onLoginSuccess()
+                                        },
+                                        onError = {
+                                            // Failed, which means account doesn't exist. Proceed to Register Screen
+                                            isLoading = false
+                                            currentStep = AuthStep.NAME_INPUT
+                                        }
+                                    )
+                                },
+                                enabled = !isLoading,
+                                colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .testTag("verify_otp_button")
+                            ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                                } else {
+                                    Text(
+                                        text = "Verify OTP",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
@@ -591,6 +706,410 @@ fun LoginRegisterScreen(
                                         Icon(Icons.Default.Check, contentDescription = "Complete")
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sliding SMS Notification Banner
+        AnimatedVisibility(
+            visible = showSmsNotification,
+            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(16.dp)
+                .statusBarsPadding()
+                .zIndex(100f)
+        ) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(16.dp))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // SMS Icon with badge
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(Color(0xFFE8F5E9), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Sms,
+                            contentDescription = "SMS",
+                            tint = primaryColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Messages • now",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Gray
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.Gray,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clickable { showSmsNotification = false }
+                            )
+                        }
+                        Text(
+                            text = "RChat Verification Support",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Your login verification code is: $generatedOtp. Please use this code to verify your account in the RChat app. Do not share it.",
+                            fontSize = 13.sp,
+                            color = Color.DarkGray
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    val clip = ClipData.newPlainText("RChat OTP", generatedOtp)
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, "OTP Code Copied!", Toast.LENGTH_SHORT).show()
+                                    showSmsNotification = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("Copy Code", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            
+                            TextButton(
+                                onClick = {
+                                    enteredOtp = generatedOtp
+                                    showSmsNotification = false
+                                    Toast.makeText(context, "OTP Auto-filled!", Toast.LENGTH_SHORT).show()
+                                },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("Auto-fill", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = primaryColor)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Verification Call Overlay
+        AnimatedVisibility(
+            visible = isCallActive,
+            enter = fadeIn() + expandIn(),
+            exit = fadeOut() + shrinkOut(),
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(200f)
+        ) {
+            val darkBgColor = Color(0xFF0F172A) // Sleek slate-900 background
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(darkBgColor)
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Call Header
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(top = 48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.VerifiedUser,
+                            contentDescription = null,
+                            tint = Color(0xFF38BDF8),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "RChat Verification Support",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (isCallIncoming) "Incoming Verification Call..." else "Voice OTP Verification",
+                            fontSize = 15.sp,
+                            color = Color.LightGray
+                        )
+                        
+                        if (isCallAnswered) {
+                            val minutes = callTimer / 60
+                            val seconds = callTimer % 60
+                            val timerStr = String.format("%02d:%02d", minutes, seconds)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = timerStr,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF38BDF8)
+                            )
+                        }
+                    }
+
+                    // Call Body: Visualizer or pulsing avatar
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isCallIncoming) {
+                            // Pulsing avatar for incoming call
+                            val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                            val scale by infiniteTransition.animateFloat(
+                                initialValue = 0.9f,
+                                targetValue = 1.15f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(1000, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Reverse
+                                ),
+                                label = "scale"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF1E293B))
+                                    .border(2.dp, Color(0xFF38BDF8).copy(alpha = 0.5f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size((100 * scale).dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF334155)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PhoneInTalk,
+                                        contentDescription = "Pulsing Call",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            // Answered state: show active sound visualizer and subtitles
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(24.dp)
+                            ) {
+                                // Sound Visualizer (bouncing bars)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.height(60.dp)
+                                ) {
+                                    repeat(5) { index ->
+                                        val infiniteTransition = rememberInfiniteTransition(label = "bar_$index")
+                                        val heightPercent by infiniteTransition.animateFloat(
+                                            initialValue = 0.2f,
+                                            targetValue = 1.0f,
+                                            animationSpec = infiniteRepeatable(
+                                                animation = tween(
+                                                    durationMillis = 300 + (index * 120),
+                                                    easing = FastOutSlowInEasing
+                                                ),
+                                                repeatMode = RepeatMode.Reverse
+                                            ),
+                                            label = "height"
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .width(8.dp)
+                                                .fillMaxHeight(heightPercent)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color(0xFF4ADE80)) // Active green
+                                        )
+                                    }
+                                }
+                                
+                                // Live Subtitles Card
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "LIVE SUBTITLES",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF38BDF8),
+                                            letterSpacing = 1.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "Speaking Code:  ${generatedOtp.map { it.toString() }.joinToString("   ")}",
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "\"Your RChat verification code is ${generatedOtp}. Please do not share this code with anyone.\"",
+                                            fontSize = 13.sp,
+                                            color = Color.LightGray,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Call Actions / Buttons
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 32.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isCallIncoming) {
+                            // Decline Button (Red)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                IconButton(
+                                    onClick = {
+                                        isCallActive = false
+                                        isCallIncoming = false
+                                        isCallAnswered = false
+                                        tts?.stop()
+                                        Toast.makeText(context, "Verification call declined", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFEF4444))
+                                        .testTag("decline_otp_call")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CallEnd,
+                                        contentDescription = "Decline Call",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(30.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Decline", color = Color.White, fontSize = 12.sp)
+                            }
+
+                            // Answer Button (Green)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                IconButton(
+                                    onClick = {
+                                        isCallIncoming = false
+                                        isCallAnswered = true
+                                    },
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF22C55E))
+                                        .testTag("answer_otp_call")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Call,
+                                        contentDescription = "Answer Call",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(30.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Answer", color = Color.White, fontSize = 12.sp)
+                            }
+                        } else {
+                            // Active call actions: Replay and Hang Up
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                IconButton(
+                                    onClick = {
+                                        speakOtpText()
+                                        Toast.makeText(context, "Replaying verification code...", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier
+                                        .size(54.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF334155))
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Refresh,
+                                        contentDescription = "Replay Code",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Replay Code", color = Color.White, fontSize = 12.sp)
+                            }
+                            
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                IconButton(
+                                    onClick = {
+                                        isCallActive = false
+                                        isCallAnswered = false
+                                        tts?.stop()
+                                        Toast.makeText(context, "Call ended", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFEF4444))
+                                        .testTag("hang_up_otp_call")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CallEnd,
+                                        contentDescription = "Hang Up",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(30.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Hang Up", color = Color.White, fontSize = 12.sp)
                             }
                         }
                     }

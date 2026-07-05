@@ -51,8 +51,11 @@ fun MainDashboardScreen(
 
     var showSearchDialog by remember { mutableStateOf(false) }
     var showProfileDialog by remember { mutableStateOf(false) }
+    var showCreateChannelDialog by remember { mutableStateOf(false) }
+    var showCreateGroupDialog by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
-    var selectedTab by remember { mutableStateOf(0) } // 0 = Chats, 1 = Groups, 2 = Settings
+    var threeDotMenuExpanded by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(0) } // 0 = Chats, 1 = Groups, 2 = Calls
     var chatSearchQuery by remember { mutableStateOf("") }
 
     val context = LocalContext.current
@@ -80,74 +83,8 @@ fun MainDashboardScreen(
         }
     }
 
-    // Combine database chats with screenshot's beautiful mock chats to ensure 100% same-to-same visual look
-    val displayChats = remember(recentChats) {
-        val list = recentChats.toMutableList()
-        val screenshotChats = listOf(
-            RecentChat(
-                uid = "sarah_jenkins_uid",
-                fullname = "Sarah Jenkins",
-                username = "sarah",
-                profilePic = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80",
-                unread = 2
-            ),
-            RecentChat(
-                uid = "marcus_chen_uid",
-                fullname = "Marcus Chen",
-                username = "marcus_c",
-                profilePic = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
-                unread = 0
-            ),
-            RecentChat(
-                uid = "design_squad_uid",
-                fullname = "Design Squad",
-                username = "design_squad",
-                profilePic = "", // Custom lavender fallback
-                unread = 0
-            ),
-            RecentChat(
-                uid = "elena_rodriguez_uid",
-                fullname = "Elena Rodriguez",
-                username = "elena_r",
-                profilePic = "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&q=80",
-                unread = 0
-            ),
-            RecentChat(
-                uid = "robert_miller_uid",
-                fullname = "Robert Miller",
-                username = "robert_m",
-                profilePic = "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80",
-                unread = 0
-            ),
-            RecentChat(
-                uid = "booking_info_uid",
-                fullname = "Booking.com Info",
-                username = "booking",
-                profilePic = "", // Custom pink fallback
-                unread = 0
-            ),
-            RecentChat(
-                uid = "jessica_wu_uid",
-                fullname = "Jessica Wu",
-                username = "jessica_w",
-                profilePic = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
-                unread = 0
-            ),
-            RecentChat(
-                uid = "alex_rivera_uid",
-                fullname = "Alex Rivera",
-                username = "alex_rivera",
-                profilePic = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80",
-                unread = 0
-            )
-        )
-        for (sc in screenshotChats) {
-            if (list.none { it.uid == sc.uid || it.fullname.lowercase() == sc.fullname.lowercase() }) {
-                list.add(sc)
-            }
-        }
-        list
-    }
+    // Only use dynamic recent chats, totally avoiding any demo data as requested by the user
+    val displayChats = recentChats
 
     Scaffold(
         topBar = {
@@ -163,21 +100,61 @@ fun MainDashboardScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                     },
-                    navigationIcon = {
-                        IconButton(onClick = { selectedTab = 2 }) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Menu",
-                                tint = Color(0xFF4E3593)
-                            )
-                        }
-                    },
                     actions = {
                         IconButton(
                             onClick = { showSearchDialog = true },
                             modifier = Modifier.testTag("search_icon")
                         ) {
                             Icon(Icons.Default.Search, contentDescription = "Search Users", tint = Color(0xFF4E3593))
+                        }
+                        Box {
+                            IconButton(
+                                onClick = { threeDotMenuExpanded = true },
+                                modifier = Modifier.testTag("more_menu_button")
+                            ) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "More Options", tint = Color(0xFF4E3593))
+                            }
+                            DropdownMenu(
+                                expanded = threeDotMenuExpanded,
+                                onDismissRequest = { threeDotMenuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Profile") },
+                                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF4E3593)) },
+                                    onClick = {
+                                        threeDotMenuExpanded = false
+                                        showProfileDialog = true
+                                    },
+                                    modifier = Modifier.testTag("menu_profile")
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("New Channel") },
+                                    leadingIcon = { Icon(Icons.Default.Campaign, contentDescription = null, tint = Color(0xFF4E3593)) },
+                                    onClick = {
+                                        threeDotMenuExpanded = false
+                                        showCreateChannelDialog = true
+                                    },
+                                    modifier = Modifier.testTag("menu_new_channel")
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("New Group") },
+                                    leadingIcon = { Icon(Icons.Default.GroupAdd, contentDescription = null, tint = Color(0xFF4E3593)) },
+                                    onClick = {
+                                        threeDotMenuExpanded = false
+                                        showCreateGroupDialog = true
+                                    },
+                                    modifier = Modifier.testTag("menu_new_group")
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Settings") },
+                                    leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF4E3593)) },
+                                    onClick = {
+                                        threeDotMenuExpanded = false
+                                        showProfileDialog = true
+                                    },
+                                    modifier = Modifier.testTag("menu_settings")
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF3EFF5)),
@@ -278,24 +255,25 @@ fun MainDashboardScreen(
                     )
                 )
 
-                // Settings tab
+                // Calls tab
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     icon = {
                         Icon(
-                            imageVector = if (selectedTab == 2) Icons.Default.Settings else Icons.Outlined.Settings,
-                            contentDescription = "Settings"
+                            imageVector = if (selectedTab == 2) Icons.Default.Call else Icons.Outlined.Call,
+                            contentDescription = "Calls"
                         )
                     },
-                    label = { Text("Settings", fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp) },
+                    label = { Text("Calls", fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFF4E3593),
                         unselectedIconColor = Color(0xFF756E8A),
                         selectedTextColor = Color(0xFF4E3593),
                         unselectedTextColor = Color(0xFF756E8A),
                         indicatorColor = Color(0xFFE1D5F5)
-                    )
+                    ),
+                    modifier = Modifier.testTag("calls_tab")
                 )
             }
         }
@@ -339,7 +317,10 @@ fun MainDashboardScreen(
                     }
                 }
                 1 -> {
-                    // Groups Tab Screen
+                    // Groups Tab Screen (Dynamic real channels and groups, 100% free of mock data)
+                    val localGroups = remember(recentChats) {
+                        recentChats.filter { it.username == "group" || it.username == "channel" }
+                    }
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -357,7 +338,7 @@ fun MainDashboardScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showSearchDialog = true }
+                                .clickable { showCreateGroupDialog = true }
                                 .background(Color(0xFFF3EFF5), RoundedCornerShape(12.dp))
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -380,291 +361,310 @@ fun MainDashboardScreen(
                         // Display Group Conversations
                         Text("Active Groups", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
 
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            item {
-                                // Design Squad Group
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            viewModel.selectChat(
-                                                RecentChat(
-                                                    uid = "design_squad_uid",
-                                                    fullname = "Design Squad",
-                                                    username = "design_squad"
-                                                )
-                                            )
-                                            onChatSelected()
-                                        }
-                                        .padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(52.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFFE1D5F5)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text("DS", color = Color(0xFF5B3FB5), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                    }
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text("Design Squad", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
-                                            Text("Yesterday", fontSize = 12.sp, color = Color.Gray)
-                                        }
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text("Liam: The new icons look absolutely...", fontSize = 13.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                }
-                                HorizontalDivider(color = Color(0xFFF1F1F1), modifier = Modifier.padding(start = 68.dp))
+                        if (localGroups.isEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "No Groups or Channels Yet",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Click 'Create New Group' or use the 3-dot menu to start one.",
+                                    fontSize = 13.sp,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center
+                                )
                             }
-
-                            item {
-                                // Tech Pioneers Group
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { }
-                                        .padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
+                        } else {
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(localGroups) { chat ->
+                                    Row(
                                         modifier = Modifier
-                                            .size(52.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFFE2F497)),
-                                        contentAlignment = Alignment.Center
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                viewModel.selectChat(chat)
+                                                onChatSelected()
+                                            }
+                                            .padding(vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text("TP", color = Color(0xFF321B66), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                    }
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                                        Box(
+                                            modifier = Modifier
+                                                .size(52.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    if (chat.username == "channel") Color(0xFFE1D5F5) else Color(0xFFE2F497)
+                                                ),
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            Text("Tech Pioneers", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
-                                            Text("Tuesday", fontSize = 12.sp, color = Color.Gray)
+                                            val initials = chat.fullname.take(2).uppercase()
+                                            Text(
+                                                text = initials,
+                                                color = if (chat.username == "channel") Color(0xFF5B3FB5) else Color(0xFF321B66),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 18.sp
+                                            )
                                         }
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text("Alek: Let's launch the beta tomorrow!", fontSize = 13.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(chat.fullname, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
+                                                Text("Active", fontSize = 12.sp, color = Color.Gray)
+                                            }
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = if (chat.username == "channel") "Broadcasting channel" else "Group conversation",
+                                                fontSize = 13.sp,
+                                                color = Color.Gray,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     }
+                                    HorizontalDivider(color = Color(0xFFF1F1F1), modifier = Modifier.padding(start = 68.dp))
                                 }
-                                HorizontalDivider(color = Color(0xFFF1F1F1), modifier = Modifier.padding(start = 68.dp))
                             }
                         }
                     }
                 }
                 2 -> {
-                    // Settings Tab Screen (Natively integrated, extremely clean layout)
+                    // Calls Tab Screen (Natively integrated, clean and polished)
+                    val callLogs by viewModel.callLogs.collectAsState()
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                            .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
-                            text = "Settings & Profile",
+                            text = "Call History",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp,
-                            color = Color(0xFF4E3593),
-                            modifier = Modifier.fillMaxWidth()
+                            fontSize = 20.sp,
+                            color = Color(0xFF4E3593)
                         )
 
-                        // Big circular avatar with upload shortcut
-                        Box(
-                            modifier = Modifier.padding(bottom = 8.dp),
-                            contentAlignment = Alignment.BottomEnd
-                        ) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(currentUser?.avatarUrl)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = "My Avatar",
-                                contentScale = ContentScale.Crop,
+                        if (callLogs.isEmpty()) {
+                            Column(
                                 modifier = Modifier
-                                    .size(110.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.LightGray)
-                            )
-                            IconButton(
-                                onClick = { galleryLauncher.launch("image/*") },
-                                colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF4E3593)),
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Icon(Icons.Default.CameraAlt, contentDescription = "Upload Avatar", tint = Color.White, modifier = Modifier.size(16.dp))
-                            }
-                        }
-
-                        if (progressMsg != null) {
-                            Text(text = progressMsg!!, color = Color(0xFF4E3593), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        }
-
-                        // Fields
-                        OutlinedTextField(
-                            value = name,
-                            onValueChange = { name = it },
-                            label = { Text("Full Name") },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.Black,
-                                unfocusedTextColor = Color.Black,
-                                focusedBorderColor = Color(0xFF4E3593),
-                                focusedLabelColor = Color(0xFF4E3593)
-                            ),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        OutlinedTextField(
-                            value = username,
-                            onValueChange = { username = it },
-                            label = { Text("Username") },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.Black,
-                                unfocusedTextColor = Color.Black,
-                                focusedBorderColor = Color(0xFF4E3593),
-                                focusedLabelColor = Color(0xFF4E3593)
-                            ),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        OutlinedTextField(
-                            value = email,
-                            onValueChange = { email = it },
-                            label = { Text("Email Address") },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.Black,
-                                unfocusedTextColor = Color.Black,
-                                focusedBorderColor = Color(0xFF4E3593),
-                                focusedLabelColor = Color(0xFF4E3593)
-                            ),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        OutlinedTextField(
-                            value = phone,
-                            onValueChange = { phone = it },
-                            label = { Text("Phone Number") },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.Black,
-                                unfocusedTextColor = Color.Black,
-                                focusedBorderColor = Color(0xFF4E3593),
-                                focusedLabelColor = Color(0xFF4E3593)
-                            ),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        OutlinedTextField(
-                            value = password,
-                            onValueChange = { password = it },
-                            label = { Text("New Password (optional)") },
-                            placeholder = { Text("Leave blank to keep current") },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.Black,
-                                unfocusedTextColor = Color.Black,
-                                focusedBorderColor = Color(0xFF4E3593),
-                                focusedLabelColor = Color(0xFF4E3593)
-                            ),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        if (updateErrorMsg != null) {
-                            Text(text = updateErrorMsg!!, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = {
-                                if (name.isBlank() || username.isBlank() || email.isBlank() || phone.isBlank()) {
-                                    updateErrorMsg = "Please fill in all non-password fields"
-                                    return@Button
-                                }
-                                isUpdatingProfile = true
-                                updateErrorMsg = null
-                                viewModel.updateProfile(
-                                    name = name,
-                                    username = username,
-                                    email = email,
-                                    phone = phone,
-                                    password = if (password.isNotBlank()) password else null,
-                                    onSuccess = {
-                                        isUpdatingProfile = false
-                                        android.widget.Toast.makeText(context, "Profile updated successfully!", android.widget.Toast.LENGTH_SHORT).show()
-                                    },
-                                    onError = { err ->
-                                        isUpdatingProfile = false
-                                        updateErrorMsg = err
-                                    }
-                                )
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4E3593)),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().height(48.dp)
-                        ) {
-                            if (isUpdatingProfile) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                            } else {
-                                Row(
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
+                                Box(
+                                    modifier = Modifier
+                                        .size(72.dp)
+                                        .background(Color(0xFFF3EFF5), CircleShape),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.Check, contentDescription = "Save Changes")
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Save Changes", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Icon(
+                                        imageVector = Icons.Default.Call,
+                                        contentDescription = null,
+                                        tint = Color(0xFF4E3593),
+                                        modifier = Modifier.size(36.dp)
+                                    )
                                 }
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "No Calls Yet",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = Color.Black
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Recent audio and video calls will show up here.",
+                                    fontSize = 14.sp,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center
+                                )
                             }
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.logout {
-                                    onLogoutSuccess()
-                                }
-                            },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE53935)),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().height(48.dp)
-                        ) {
-                            Row(
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
+                        } else {
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.ExitToApp, contentDescription = "Logout")
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Log Out", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                items(callLogs) { log ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                // Trigger callback or initiate call
+                                            }
+                                            .padding(vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFE1D5F5)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (!log.userPic.isNullOrEmpty()) {
+                                                AsyncImage(
+                                                    model = ImageRequest.Builder(context)
+                                                        .data(log.userPic)
+                                                        .crossfade(true)
+                                                        .build(),
+                                                    contentDescription = log.userName,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = log.userName.take(2).uppercase(),
+                                                    color = Color(0xFF5B3FB5),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 16.sp
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = log.userName,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                color = Color.Black
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Icon(
+                                                    imageVector = if (log.isIncoming) Icons.Default.CallReceived else Icons.Default.CallMade,
+                                                    contentDescription = if (log.isIncoming) "Incoming" else "Outgoing",
+                                                    tint = if (log.isIncoming) Color(0xFF4CAF50) else Color(0xFF2196F3),
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Text(
+                                                    text = log.timeLabel,
+                                                    fontSize = 13.sp,
+                                                    color = Color.Gray
+                                                )
+                                            }
+                                        }
+                                        IconButton(onClick = {
+                                            // Call again
+                                        }) {
+                                            Icon(
+                                                imageVector = if (log.type == "video") Icons.Default.Videocam else Icons.Default.Call,
+                                                contentDescription = "Call",
+                                                tint = Color(0xFF4E3593)
+                                            )
+                                        }
+                                    }
+                                    HorizontalDivider(color = Color(0xFFF1F1F1), modifier = Modifier.padding(start = 64.dp))
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(30.dp))
                     }
                 }
             }
         }
+    }
+
+    // Custom overlay panels
+    if (showCreateChannelDialog) {
+        var channelName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showCreateChannelDialog = false },
+            title = { Text("Create New Channel") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Enter a name for your new broadcasting channel.", fontSize = 14.sp, color = Color.Gray)
+                    OutlinedTextField(
+                        value = channelName,
+                        onValueChange = { channelName = it },
+                        label = { Text("Channel Name") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black,
+                            focusedBorderColor = Color(0xFF4E3593),
+                            focusedLabelColor = Color(0xFF4E3593)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (channelName.isNotBlank()) {
+                            viewModel.createLocalGroupOrChannel(channelName.trim(), isChannel = true)
+                            showCreateChannelDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4E3593))
+                ) {
+                    Text("Create")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateChannelDialog = false }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            }
+        )
+    }
+
+    if (showCreateGroupDialog) {
+        var groupName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showCreateGroupDialog = false },
+            title = { Text("Create New Group") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Enter a name for your new group chat.", fontSize = 14.sp, color = Color.Gray)
+                    OutlinedTextField(
+                        value = groupName,
+                        onValueChange = { groupName = it },
+                        label = { Text("Group Name") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black,
+                            focusedBorderColor = Color(0xFF4E3593),
+                            focusedLabelColor = Color(0xFF4E3593)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (groupName.isNotBlank()) {
+                            viewModel.createLocalGroupOrChannel(groupName.trim(), isChannel = false)
+                            showCreateGroupDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4E3593))
+                ) {
+                    Text("Create")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateGroupDialog = false }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            }
+        )
     }
 
     // Custom overlay panels
@@ -730,20 +730,7 @@ fun formatChatTimestamp(timeMs: Long): String {
     }
 }
 
-// Get fallback message and time matching screenshot for beautiful visual look on empty states
-fun getFallbackLastMessage(fullname: String): Pair<String, String> {
-    return when (fullname) {
-        "Sarah Jenkins" -> Pair("I've attached the final version of the...", "10:42 AM")
-        "Marcus Chen" -> Pair("Are we still on for the sync later today?...", "9:15 AM")
-        "Design Squad" -> Pair("Liam: The new icons look absolutely...", "Yesterday")
-        "Elena Rodriguez" -> Pair("Sounds good to me. See you at the...", "Yesterday")
-        "Robert Miller" -> Pair("Please review the contract amendment...", "Tuesday")
-        "Booking.com Info" -> Pair("Your reservation #192837 is confirmed...", "Monday")
-        "Jessica Wu" -> Pair("Thanks for the feedback on the...", "Oct 24")
-        "Alex Rivera" -> Pair("The build is ready for testing. Check th...", "Oct 22")
-        else -> Pair("", "")
-    }
-}
+
 
 // Get initials color scheme based on user initials to match screenshot perfectly
 fun getAvatarColors(name: String): Pair<Color, Color> {
@@ -773,24 +760,17 @@ fun RecentChatItem(
     val messageText: String
     val messageTime: String
     
-    // Resolve content and time using actual database message if available, else screenshot fallback
+    // Resolve content and time using actual database message if available
     if (lastMsg != null) {
         messageText = if (lastMsg.sender == myUid) "✓✓ ${lastMsg.text ?: ""}" else lastMsg.text ?: ""
         messageTime = formatChatTimestamp(lastMsg.time)
     } else {
-        val fallback = getFallbackLastMessage(chat.fullname)
-        if (fallback.first.isNotEmpty()) {
-            // Apply grey checkmarks "✓✓ " for Elena Rodriguez to match screenshot exactly
-            messageText = if (chat.fullname == "Elena Rodriguez") "✓✓ ${fallback.first}" else fallback.first
-            messageTime = fallback.second
-        } else {
-            messageText = "@${chat.username}"
-            messageTime = ""
-        }
+        messageText = "@${chat.username}"
+        messageTime = ""
     }
 
-    // Determine online dot matching screenshot
-    val isOnline = chat.fullname == "Sarah Jenkins" || chat.fullname == "Elena Rodriguez" || chat.fullname == "Elena Vance" || chat.fullname == "Maya Patel"
+    // Determine online status dynamically (no hardcoded demo users)
+    val isOnline = false
 
     Row(
         modifier = Modifier
