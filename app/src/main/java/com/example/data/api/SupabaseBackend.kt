@@ -94,15 +94,92 @@ class SupabaseBackend(private val context: Context) {
         return client.newCall(request).execute()
     }
 
-    fun signUp(email: String, pass: String, fullname: String, username: String, phone: String): Result<User> {
+    fun sendOtp(phone: String): Result<GeneralResponse> {
+        return try {
+            val jsonBody = mapOf("phone" to phone)
+            val bodyString = moshi.adapter(Map::class.java).toJson(jsonBody)
+            val requestBody = bodyString.toRequestBody("application/json".toMediaTypeOrNull())
+
+            val response = makeRequest("/auth/v1/otp", "POST", requestBody)
+            val respStr = response.body?.string() ?: ""
+            response.close()
+
+            if (!response.isSuccessful) {
+                val errMsg = parseErrorMsg(respStr) ?: "Send OTP failed: ${response.code}"
+                return Result.failure(Exception(errMsg))
+            }
+
+            Result.success(GeneralResponse(ok = true))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    fun verifyOtp(phone: String, otp: String): Result<User> {
+        return try {
+            val jsonBody = mapOf(
+                "phone" to phone,
+                "token" to otp,
+                "type" to "sms"
+            )
+            val bodyString = moshi.adapter(Map::class.java).toJson(jsonBody)
+            val requestBody = bodyString.toRequestBody("application/json".toMediaTypeOrNull())
+
+            val response = makeRequest("/auth/v1/verify", "POST", requestBody)
+            val respStr = response.body?.string() ?: ""
+            response.close()
+
+            if (!response.isSuccessful) {
+                val errMsg = parseErrorMsg(respStr) ?: "Verify OTP failed: ${response.code}"
+                return Result.failure(Exception(errMsg))
+            }
+
+            val json = org.json.JSONObject(respStr)
+            val uid = json.getJSONObject("user").getString("id")
+            val token = json.getString("access_token")
+
+            prefs.edit()
+                .putString("supabase_token", token)
+                .putString("supabase_uid", uid)
+                .apply()
+
+            // Fetch or create profile
+            var fullname = ""
+            var username = ""
+            
+            // Check if profile exists
+            val profResp = makeRequest("/rest/v1/profiles?id=eq.$uid&select=*", "GET")
+            val profStr = profResp.body?.string() ?: ""
+            profResp.close()
+            
+            val array = org.json.JSONArray(profStr)
+            if (array.length() == 0) {
+                // Create default profile
+                fullname = "User"
+                username = "user_${uid.take(4)}"
+                val profileBody = mapOf("id" to uid, "fullname" to fullname, "username" to username)
+                val profileStr = moshi.adapter(Map::class.java).toJson(profileBody)
+                val profReqBody = profileStr.toRequestBody("application/json".toMediaTypeOrNull())
+                makeRequest("/rest/v1/profiles", "POST", profReqBody).close()
+            } else {
+                val p = array.getJSONObject(0)
+                fullname = p.optString("fullname", "User")
+                username = p.optString("username", "user")
+            }
+
+            Result.success(User(uid = uid, fullname = fullname, username = username, email = null, phone = phone, profilePic = null))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    fun signUp(pass: String, fullname: String, username: String): Result<User> {
         return try {
             val signupData = mapOf(
                 "fullname" to fullname,
-                "username" to username,
-                "phone" to phone
+                "username" to username
             )
             val jsonBody = mapOf(
-                "email" to email,
                 "password" to pass,
                 "data" to signupData
             )
@@ -131,9 +208,7 @@ class SupabaseBackend(private val context: Context) {
             val profileBody = mapOf(
                 "id" to uid,
                 "fullname" to fullname,
-                "username" to username,
-                "email" to email,
-                "phone" to phone
+                "username" to username
             )
             val profileStr = moshi.adapter(Map::class.java).toJson(profileBody)
             val profileReqBody = profileStr.toRequestBody("application/json".toMediaTypeOrNull())
@@ -149,8 +224,8 @@ class SupabaseBackend(private val context: Context) {
                 uid = uid,
                 fullname = fullname,
                 username = username,
-                email = email,
-                phone = phone,
+                email = null,
+                phone = "",
                 profilePic = null
             )
             Result.success(user)

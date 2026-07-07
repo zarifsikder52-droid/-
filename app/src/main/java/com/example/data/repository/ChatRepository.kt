@@ -5,6 +5,7 @@ import android.util.Log
 import com.example.data.api.ApiService
 import com.example.data.api.RetrofitClient
 import com.example.data.api.SupabaseBackend
+import com.example.data.api.TwilioService
 import com.example.data.crypto.EncryptionHelper
 import com.example.data.local.*
 import com.example.data.model.*
@@ -256,36 +257,13 @@ class ChatRepository(
         }
     }
 
-    suspend fun login(email: String, pass: String): Result<User> = withContext(Dispatchers.IO) {
-        try {
-            val user = if (supabase.isEnabled()) {
-                supabase.login(email, pass).getOrThrow()
-            } else {
-                apiService.login(email = email, password = pass)
-            }
-            chatDao.clearSelfUser()
-            chatDao.insertSelfUser(
-                CachedSelfUser(
-                    uid = user.uid,
-                    fullname = user.fullname,
-                    username = user.username,
-                    email = user.email,
-                    phone = user.phone,
-                    profilePic = user.profilePic
-                )
-            )
-            Result.success(user)
-        } catch (e: Exception) {
-            Result.failure(Exception(getErrorMessage(e)))
-        }
-    }
 
-    suspend fun register(name: String, username: String, email: String, phone: String, pass: String): Result<User> = withContext(Dispatchers.IO) {
+    suspend fun register(name: String, username: String, pass: String): Result<User> = withContext(Dispatchers.IO) {
         try {
             val user = if (supabase.isEnabled()) {
-                supabase.signUp(email, pass, name, username, phone).getOrThrow()
+                supabase.signUp(pass = pass, fullname = name, username = username).getOrThrow()
             } else {
-                apiService.register(name = name, username = username, email = email, phone = phone, password = pass)
+                apiService.register(name = name, username = username, password = pass)
             }
             chatDao.clearSelfUser()
             chatDao.insertSelfUser(

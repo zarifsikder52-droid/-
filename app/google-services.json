@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "63323802122",
+    "project_id": "arcane-splicer-482810-i9",
+    "storage_bucket": "arcane-splicer-482810-i9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:63323802122:android:0eadd4018788ade2e26df3",
+        "android_client_info": {
+          "package_name": "com.rchat"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "63323802122-rieomj34jbkdovoaj8080gqh21sns31s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAz1qmc_1wezkbBCBAooL8qQCok4B_ZNVw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "63323802122-rieomj34jbkdovoaj8080gqh21sns31s.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

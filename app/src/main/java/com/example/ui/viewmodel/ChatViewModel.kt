@@ -257,34 +257,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun login(email: String, pass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        viewModelScope.launch {
-            repository.login(email, pass).fold(
-                onSuccess = { user ->
-                    _currentUser.value = user
-                    startDashboardSyncing()
-                    onSuccess()
-                },
-                onFailure = {
-                    onError(it.localizedMessage ?: "Login failed")
-                }
-            )
-        }
-    }
-
-    fun register(name: String, username: String, email: String, phone: String, pass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        viewModelScope.launch {
-            repository.register(name, username, email, phone, pass).fold(
-                onSuccess = { user ->
-                    _currentUser.value = user
-                    startDashboardSyncing()
-                    onSuccess()
-                },
-                onFailure = {
-                    onError(it.localizedMessage ?: "Registration failed")
-                }
-            )
-        }
+    fun loginWithGoogle(context: Context) {
+        // Implementation for Google login would go here,
+        // typically using a browser intent to hit the Supabase OAuth URL.
+        val url = "${repository.supabase.getSupabaseUrl()}/auth/v1/authorize?provider=google&redirect_to=rchat://callback"
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+        context.startActivity(intent)
     }
 
     fun createLocalGroupOrChannel(name: String, isChannel: Boolean) {

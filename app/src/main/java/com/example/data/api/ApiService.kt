@@ -23,8 +23,6 @@ interface ApiService {
         @Field("action") action: String = "register",
         @Field("name") name: String,
         @Field("username") username: String,
-        @Field("email") email: String,
-        @Field("phone") phone: String,
         @Field("password") password: String
     ): User
 
